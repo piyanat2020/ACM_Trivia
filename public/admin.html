@@ -2,152 +2,114 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>ระบบจัดการคำถาม (Admin Panel)</title>
+    <title>ระบบจัดการ (Admin Panel)</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; background-color: #f9f9f9; }
+        body { font-family: sans-serif; padding: 20px; max-width: 900px; margin: auto; background-color: #f9f9f9; }
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        input, select, button { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
-        button { background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        input, select, button, textarea { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; padding: 10px; }
         button:hover { background-color: #0056b3; }
         .delete-btn { background-color: #dc3545; width: auto; padding: 5px 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
+        .music-card { border-left: 5px solid #28a745; }
     </style>
 </head>
 <body>
 
     <h1>จัดการระบบ Trivia</h1>
 
-    <div class="card">
-        <h3>ข้อความพิเศษ (3 นาทีสุดท้าย)</h3>
-        <input type="text" id="special-message" placeholder="กรอกข้อความที่ต้องการแจ้งเตือน">
-        <button onclick="updateSpecialMessage()">บันทึกข้อความ</button>
+    <div class="card music-card">
+        <h3>🎵 จัดการเพลงประกอบ (MP3 URLs)</h3>
+        <p style="font-size: 0.9em; color: gray;">นำลิงก์ไฟล์ .mp3 ที่อยู่บนอินเทอร์เน็ตมาวาง เพื่อให้ระบบสุ่มเปิดตอนเริ่มเกม</p>
+        <input type="text" id="track-name" placeholder="ชื่อเพลง (เช่น เพลงชิลๆ)">
+        <input type="text" id="track-url" placeholder="ลิงก์ MP3 (เช่น https://example.com/song.mp3)">
+        <button onclick="addTrack()" style="background-color: #28a745;">+ เพิ่มเพลง</button>
+        
+        <table>
+            <thead><tr><th>ชื่อเพลง</th><th>ลิงก์ (URL)</th><th>จัดการ</th></tr></thead>
+            <tbody id="tracks-table-body"></tbody>
+        </table>
     </div>
 
     <div class="card">
         <h3>เพิ่มคำถามใหม่</h3>
-        <label>คำถาม:</label>
-        <input type="text" id="q-text" placeholder="เช่น 1+1 เท่ากับเท่าไร?">
-        
-        <label>ตัวเลือกที่ 1:</label>
+        <input type="text" id="q-text" placeholder="คำถาม: เช่น 1+1 เท่ากับเท่าไร?">
         <input type="text" id="q-opt1" placeholder="ตัวเลือกที่ 1">
-        
-        <label>ตัวเลือกที่ 2:</label>
         <input type="text" id="q-opt2" placeholder="ตัวเลือกที่ 2">
-        
-        <label>ตัวเลือกที่ 3:</label>
         <input type="text" id="q-opt3" placeholder="ตัวเลือกที่ 3">
-        
-        <label>ข้อที่ถูกต้อง:</label>
         <select id="q-answer">
-            <option value="0">ตัวเลือกที่ 1</option>
-            <option value="1">ตัวเลือกที่ 2</option>
-            <option value="2">ตัวเลือกที่ 3</option>
+            <option value="0">เฉลย: ตัวเลือกที่ 1</option>
+            <option value="1">เฉลย: ตัวเลือกที่ 2</option>
+            <option value="2">เฉลย: ตัวเลือกที่ 3</option>
         </select>
-        
+        <textarea id="q-explanation" rows="3" placeholder="คำอธิบาย (ทำไมถึงตอบข้อนี้?)"></textarea>
         <button onclick="addQuestion()">เพิ่มคำถาม</button>
     </div>
 
     <div class="card">
         <h3>รายการคำถามทั้งหมด</h3>
         <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>คำถาม</th>
-                    <th>ตัวเลือก (ข้อถูกจะมีเครื่องหมาย ✅)</th>
-                    <th>จัดการ</th>
-                </tr>
-            </thead>
-            <tbody id="questions-table-body">
-                </tbody>
+            <thead><tr><th>คำถาม</th><th>ตัวเลือก (✅ ข้อถูก)</th><th>คำอธิบาย</th><th>จัดการ</th></tr></thead>
+            <tbody id="questions-table-body"></tbody>
         </table>
     </div>
 
     <script>
-         const API_URL = '/api';
+        const API_URL = '/api';
 
-        // โหลดข้อมูลทั้งหมดเมื่อเปิดหน้าเว็บ
-        window.onload = () => {
-            fetchSettings();
-            fetchQuestions();
-        };
+        window.onload = () => { fetchQuestions(); fetchTracks(); };
 
-        // --- ฟังก์ชันดึงและอัปเดตข้อความพิเศษ ---
-        async function fetchSettings() {
-            const res = await fetch(`${API_URL}/settings`);
-            const data = await res.json();
-            document.getElementById('special-message').value = data.specialMessage;
+        // --- ระบบเพลง ---
+        async function fetchTracks() {
+            const res = await fetch(`${API_URL}/tracks`);
+            const tracks = await res.json();
+            const tbody = document.getElementById('tracks-table-body');
+            tbody.innerHTML = tracks.map(t => `
+                <tr><td>${t.name}</td><td style="word-break: break-all; font-size:0.8em;">${t.url}</td>
+                <td><button class="delete-btn" onclick="deleteTrack(${t.id})">ลบ</button></td></tr>
+            `).join('');
+        }
+        async function addTrack() {
+            const name = document.getElementById('track-name').value;
+            const url = document.getElementById('track-url').value;
+            if (!name || !url) return alert('กรอกข้อมูลให้ครบ');
+            await fetch(`${API_URL}/tracks`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name, url})});
+            document.getElementById('track-name').value = ''; document.getElementById('track-url').value = '';
+            fetchTracks();
+        }
+        async function deleteTrack(id) {
+            if(confirm('ลบเพลงนี้?')) { await fetch(`${API_URL}/tracks/${id}`, { method: 'DELETE' }); fetchTracks(); }
         }
 
-        async function updateSpecialMessage() {
-            const message = document.getElementById('special-message').value;
-            await fetch(`${API_URL}/settings`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ specialMessage: message })
-            });
-            alert('อัปเดตข้อความสำเร็จ!');
-        }
-
-        // --- ฟังก์ชันเกี่ยวกับคำถาม (แสดง, เพิ่ม, ลบ) ---
+        // --- ระบบคำถาม ---
         async function fetchQuestions() {
             const res = await fetch(`${API_URL}/questions`);
             const questions = await res.json();
-            
             const tbody = document.getElementById('questions-table-body');
-            tbody.innerHTML = ''; // ล้างค่าเดิมก่อน
-            
-            questions.forEach(q => {
-                // สร้างรายการตัวเลือก และใส่ ✅ หน้าข้อที่ถูก
-                const optionsList = q.options.map((opt, idx) => 
-                    idx === q.answerIndex ? `✅ ${opt}` : opt
-                ).join(', ');
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${q.id}</td>
-                    <td>${q.text}</td>
-                    <td>${optionsList}</td>
-                    <td><button class="delete-btn" onclick="deleteQuestion(${q.id})">ลบ</button></td>
-                `;
-                tbody.appendChild(tr);
-            });
+            tbody.innerHTML = questions.map(q => {
+                const options = q.options.map((o, i) => i === q.answerIndex ? `✅ ${o}` : o).join('<br>');
+                return `<tr><td>${q.text}</td><td>${options}</td><td>${q.explanation || '-'}</td>
+                <td><button class="delete-btn" onclick="deleteQuestion(${q.id})">ลบ</button></td></tr>`;
+            }).join('');
         }
-
         async function addQuestion() {
             const text = document.getElementById('q-text').value;
-            const options = [
-                document.getElementById('q-opt1').value,
-                document.getElementById('q-opt2').value,
-                document.getElementById('q-opt3').value
-            ];
+            const options = [document.getElementById('q-opt1').value, document.getElementById('q-opt2').value, document.getElementById('q-opt3').value];
             const answerIndex = parseInt(document.getElementById('q-answer').value);
+            const explanation = document.getElementById('q-explanation').value;
 
-            if (!text || !options[0] || !options[1] || !options[2]) {
-                return alert('กรุณากรอกข้อมูลให้ครบถ้วน');
-            }
-
-            await fetch(`${API_URL}/questions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text, options, answerIndex })
-            });
-
-            // ล้างค่าในฟอร์มและโหลดตารางใหม่
-            document.getElementById('q-text').value = '';
-            document.getElementById('q-opt1').value = '';
-            document.getElementById('q-opt2').value = '';
-            document.getElementById('q-opt3').value = '';
+            if (!text || !options[0]) return alert('กรุณากรอกข้อมูลคำถามและตัวเลือก');
+            await fetch(`${API_URL}/questions`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text, options, answerIndex, explanation})});
+            
+            document.getElementById('q-text').value = ''; document.getElementById('q-opt1').value = ''; 
+            document.getElementById('q-opt2').value = ''; document.getElementById('q-opt3').value = ''; 
+            document.getElementById('q-explanation').value = '';
             fetchQuestions();
         }
-
         async function deleteQuestion(id) {
-            if (confirm('คุณแน่ใจหรือไม่ที่จะลบคำถามข้อนี้?')) {
-                await fetch(`${API_URL}/questions/${id}`, { method: 'DELETE' });
-                fetchQuestions(); // โหลดตารางใหม่
-            }
+            if (confirm('ลบคำถามนี้?')) { await fetch(`${API_URL}/questions/${id}`, { method: 'DELETE' }); fetchQuestions(); }
         }
     </script>
 </body>
