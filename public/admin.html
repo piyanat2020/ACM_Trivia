@@ -19,7 +19,8 @@
 <body>
 
     <h1>จัดการระบบ Trivia</h1>
-<div class="card">
+
+    <div class="card">
         <h3>⚙️ ตั้งค่าระบบ (เวลาและข้อความ)</h3>
         <label>ข้อความพิเศษ (3 นาทีสุดท้าย):</label>
         <input type="text" id="special-message" placeholder="กรอกข้อความแจ้งเตือน">
@@ -59,7 +60,8 @@
             <option value="0">เฉลย: ตัวเลือกที่ 1</option>
             <option value="1">เฉลย: ตัวเลือกที่ 2</option>
             <option value="2">เฉลย: ตัวเลือกที่ 3</option>
-            <option value="3">เฉลย: ตัวเลือกที่ 4</option> </select>
+            <option value="3">เฉลย: ตัวเลือกที่ 4</option> 
+        </select>
         
         <textarea id="q-explanation" rows="3" placeholder="คำอธิบาย (ทำไมถึงตอบข้อนี้?)"></textarea>
         <button onclick="addQuestion()">เพิ่มคำถาม</button>
@@ -74,7 +76,9 @@
     </div>
 
     <script>
-       // เมื่อโหลดหน้า ให้ดึงข้อมูลการตั้งค่ามาใส่ฟอร์มด้วย
+        const API_URL = '/api'; // บรรทัดนี้สำคัญมาก ห้ามหายครับ
+
+        // เมื่อโหลดหน้า ให้ดึงข้อมูลการตั้งค่า คำถาม และเพลง มาแสดง
         window.onload = () => { fetchSettings(); fetchQuestions(); fetchTracks(); };
 
         // --- ระบบตั้งค่า (Settings) ---
@@ -99,6 +103,76 @@
                 body: JSON.stringify({ specialMessage, questionTime, answerTime })
             });
             alert('อัปเดตการตั้งค่าสำเร็จ!');
+        }
+
+        // --- ระบบเพลง ---
+        async function fetchTracks() {
+            const res = await fetch(`${API_URL}/tracks`);
+            const tracks = await res.json();
+            const tbody = document.getElementById('tracks-table-body');
+            tbody.innerHTML = tracks.map(t => `
+                <tr><td>${t.name}</td><td style="word-break: break-all; font-size:0.8em;">${t.url}</td>
+                <td><button class="delete-btn" onclick="deleteTrack(${t.id})">ลบ</button></td></tr>
+            `).join('');
+        }
+
+        async function addTrack() {
+            const name = document.getElementById('track-name').value;
+            const url = document.getElementById('track-url').value;
+            if (!name || !url) return alert('กรอกข้อมูลให้ครบ');
+            await fetch(`${API_URL}/tracks`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name, url})});
+            document.getElementById('track-name').value = ''; document.getElementById('track-url').value = '';
+            fetchTracks();
+        }
+
+        async function deleteTrack(id) {
+            if(confirm('ลบเพลงนี้?')) { await fetch(`${API_URL}/tracks/${id}`, { method: 'DELETE' }); fetchTracks(); }
+        }
+
+        // --- ระบบคำถาม ---
+        async function fetchQuestions() {
+            const res = await fetch(`${API_URL}/questions`);
+            const questions = await res.json();
+            const tbody = document.getElementById('questions-table-body');
+            tbody.innerHTML = questions.map(q => {
+                const options = q.options.map((o, i) => i === q.answerIndex ? `✅ ${o}` : o).join('<br>');
+                return `<tr><td>${q.text}</td><td>${options}</td><td>${q.explanation || '-'}</td>
+                <td><button class="delete-btn" onclick="deleteQuestion(${q.id})">ลบ</button></td></tr>`;
+            }).join('');
+        }
+        
+        async function addQuestion() {
+            const text = document.getElementById('q-text').value;
+            const options = [
+                document.getElementById('q-opt1').value, 
+                document.getElementById('q-opt2').value, 
+                document.getElementById('q-opt3').value,
+                document.getElementById('q-opt4').value
+            ];
+            const answerIndex = parseInt(document.getElementById('q-answer').value);
+            const explanation = document.getElementById('q-explanation').value;
+
+            if (!text || !options[0] || !options[1] || !options[2] || !options[3]) {
+                return alert('กรุณากรอกข้อมูลคำถามและตัวเลือกให้ครบทั้ง 4 ข้อ');
+            }
+
+            await fetch(`${API_URL}/questions`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({text, options, answerIndex, explanation})
+            });
+            
+            document.getElementById('q-text').value = ''; 
+            document.getElementById('q-opt1').value = ''; 
+            document.getElementById('q-opt2').value = ''; 
+            document.getElementById('q-opt3').value = ''; 
+            document.getElementById('q-opt4').value = ''; 
+            document.getElementById('q-explanation').value = '';
+            fetchQuestions();
+        }
+
+        async function deleteQuestion(id) {
+            if (confirm('ลบคำถามนี้?')) { await fetch(`${API_URL}/questions/${id}`, { method: 'DELETE' }); fetchQuestions(); }
         }
     </script>
 </body>
