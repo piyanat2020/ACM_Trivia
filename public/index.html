@@ -30,7 +30,8 @@
     </div>
 
     <div id="game-screen" style="display: none;">
-        <div id="timer-display">เวลาคงเหลือ: 20:00</div>
+      
+       <div id="timer-display">20:00</div>
         <div id="special-message">กรุณาเตรียมคำถามก่อนเข้า Meeting!</div>
 
         <div id="question-container">
@@ -42,7 +43,7 @@
     <script>
         const API_URL = '/api';
         
-        // ตัวแปรเก็บข้อมูลจาก API
+        //// ตัวแปรเก็บข้อมูลจาก API
         let questions = [];
         let specialMessageText = "";
 
@@ -89,7 +90,7 @@
         }
 
         // ฟังก์ชันจัดการเวลา (ทำงานทุกๆ 1 วินาที)
-        function tick() {
+       function tick() {
             if (totalSeconds <= 0) {
                 clearInterval(timerInterval);
                 document.getElementById('question-text').innerText = "หมดเวลาเตรียมตัว เริ่มการประชุมได้เลยครับ!";
@@ -101,20 +102,20 @@
             totalSeconds--;
             phaseSeconds++;
 
-            // ครบ 3 นาที -> เปลี่ยนเป็นแสดงเฉลย
-            if (!isAnswerPhase && phaseSeconds >= 3 * 60) {
+            // ครบ 2 นาที (120 วินาที) -> เปลี่ยนเป็นแสดงเฉลย
+            if (!isAnswerPhase && phaseSeconds >= 2 * 60) {
                 isAnswerPhase = true;
                 phaseSeconds = 0;
             } 
-            // ครบ 2 นาทีตอนเฉลย -> เปลี่ยนไปข้อถัดไป
-            else if (isAnswerPhase && phaseSeconds >= 2 * 60) {
+            // ครบ 1 นาที (60 วินาที) ตอนเฉลย -> เปลี่ยนไปข้อถัดไป
+            else if (isAnswerPhase && phaseSeconds >= 1 * 60) {
                 isAnswerPhase = false;
                 phaseSeconds = 0;
                 currentQuestionIndex++;
                 
-                // ถ้าคำถามหมดแล้ว (แสดงครบ 4 ข้อ) ให้หยุดหน้าจอไว้
+                // ถ้าคำถามหมดแล้ว ให้หยุดหน้าจอไว้ที่ข้อสุดท้าย
                 if(currentQuestionIndex >= questions.length) {
-                    currentQuestionIndex = questions.length - 1; // ค้างไว้ที่ข้อสุดท้าย
+                    currentQuestionIndex = questions.length - 1; 
                 }
             }
 
@@ -122,11 +123,11 @@
         }
 
         // ฟังก์ชันอัปเดตหน้าจอ
-        function updateDisplay() {
-            // อัปเดตตัวเลขเวลา
+       function updateDisplay() {
+            // อัปเดตตัวเลขเวลา (แสดงแค่ตัวเลข ไม่มีคำว่าเวลาคงเหลือแล้ว)
             const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
             const s = (totalSeconds % 60).toString().padStart(2, '0');
-            document.getElementById('timer-display').innerText = `เวลาคงเหลือ: ${m}:${s}`;
+            document.getElementById('timer-display').innerText = `${m}:${s}`;
 
             // แสดงข้อความพิเศษเมื่อเหลือน้อยกว่าหรือเท่ากับ 3 นาที (180 วินาที)
             if (totalSeconds <= 180 && totalSeconds > 0) {
