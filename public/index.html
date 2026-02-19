@@ -4,24 +4,52 @@
     <meta charset="UTF-8">
     <title>Trivia Before Meeting</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f0f8ff; }
+        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f0f8ff; overflow-x: hidden; }
         .correct-answer { background-color: darkgreen; color: white; padding: 15px; border-radius: 8px; font-weight: bold; margin: 10px auto; width: 400px; }
         .option { padding: 15px; border: 2px solid #ccc; margin: 10px auto; width: 400px; border-radius: 8px; background-color: white; }
         #special-message { color: red; font-weight: bold; font-size: 1.5em; display: none; margin-bottom: 20px; animation: blink 1s infinite; }
         #timer-display { font-size: 3.5em; margin-bottom: 20px; font-weight: bold; color: #333; }
         #question-text { font-size: 2em; margin-bottom: 20px; color: #0056b3; }
         
-        /* สไตล์สำหรับคำอธิบายใต้เฉลย */
         #explanation-box { display: none; margin: 20px auto; padding: 15px; width: 60%; background-color: #fff3cd; border-left: 5px solid #ffc107; border-radius: 5px; font-size: 1.2em; text-align: left; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         
         #start-screen { margin-top: 100px; }
         .start-btn { font-size: 1.5em; padding: 15px 40px; background-color: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; }
+
+        /* 🏃‍♂️ สไตล์สำหรับลู่วิ่งและตัวการ์ตูน */
+        #track-container {
+            width: 80%;
+            max-width: 600px;
+            height: 50px;
+            margin: 20px auto 40px; /* เพิ่มระยะห่างด้านล่าง */
+            border-bottom: 4px dashed #aaa; /* เส้นลู่วิ่ง */
+            position: relative;
+            display: none; /* ซ่อนไว้ก่อน จะโชว์ตอนคำถามเริ่ม */
+        }
+        #runner {
+            font-size: 40px;
+            position: absolute;
+            bottom: -10px; /* ให้เท้ายืนอยู่บนเส้นพอดี */
+            left: 0; /* จุดเริ่มต้น */
+            transition: left 1s linear; /* ทำให้วิ่งเนียนๆ ตามวินาที */
+            transform: translateX(-50%); /* จัดกึ่งกลางตัวละคร */
+            z-index: 2;
+        }
+        #finish-line {
+            font-size: 40px;
+            position: absolute;
+            bottom: -10px;
+            right: 0;
+            transform: translateX(50%);
+        }
+        
+        @keyframes blink { 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
     <div id="start-screen">
-        <h1>กิจกรรมทายคำถามก่อนเริ่มกิจกรรม</h1>
+        <h1>กิจกรรมทายคำถามก่อนเริ่มประชุม</h1>
         <p id="loading-text">กำลังโหลดข้อมูล...</p>
         <button id="start-btn" class="start-btn" onclick="startGame()" style="display: none;">เริ่มจับเวลา 20 นาที</button>
     </div>
@@ -29,6 +57,10 @@
     <div id="game-screen" style="display: none;">
         <div id="timer-display">20:00</div>
         <div id="special-message">กรุณาเตรียมคำถามก่อนเข้า Meeting!</div>
+
+        <div id="track-container">
+            <div id="runner">🏃‍♂️</div> <div id="finish-line">🏁</div>
+        </div>
 
         <div id="question-container">
             <h2 id="question-text">เตรียมพร้อม...</h2>
@@ -38,7 +70,7 @@
     </div>
 
     <script>
-    const API_URL = '/api';
+        const API_URL = '/api';
         let questions = [];
         let tracks = [];
         let specialMessageText = "";
@@ -50,11 +82,10 @@
         let isAnswerPhase = false; 
         let timerInterval;
 
-        // ⏱️ ตัวแปรเก็บเวลาจากระบบหลังบ้าน (ค่าเริ่มต้นคือ 120 และ 60)
         let questionTimeLimit = 120;
         let answerTimeLimit = 60;
 
-       window.onload = async () => {
+        window.onload = async () => {
             try {
                 const qRes = await fetch(`${API_URL}/questions/random`);
                 questions = await qRes.json();
@@ -62,14 +93,12 @@
                 const tRes = await fetch(`${API_URL}/tracks`);
                 tracks = await tRes.json();
 
-                // ⚙️ ดึงข้อมูลตั้งค่า (เวลาและข้อความ)
                 const sRes = await fetch(`${API_URL}/settings`);
                 const settings = await sRes.json();
                 
                 specialMessageText = settings.specialMessage;
                 document.getElementById('special-message').innerText = specialMessageText;
                 
-                // อัปเดตตัวแปรเวลา
                 if(settings.questionTime) questionTimeLimit = settings.questionTime;
                 if(settings.answerTime) answerTimeLimit = settings.answerTime;
 
@@ -88,26 +117,29 @@
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
             
-            // 🎵 สุ่มเล่นเพลง
             if (tracks.length > 0) {
                 const randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
                 bgAudio.src = randomTrack.url;
-                bgAudio.loop = true; // เล่นวนซ้ำ
-                bgAudio.volume = 0.4; // ปรับเสียงเบาลงเล็กน้อย (0.0 - 1.0)
+                bgAudio.loop = true; 
+                bgAudio.volume = 0.4; 
                 bgAudio.play().catch(e => console.log("เบราว์เซอร์บล็อกเสียงอัตโนมัติ:", e));
             }
 
+            // รีเซ็ตตำแหน่งนักวิ่งก่อนเริ่ม
+            document.getElementById('runner').style.left = '0%';
+            
             updateDisplay(); 
             timerInterval = setInterval(tick, 1000); 
         }
 
-      function tick() {
+        function tick() {
             if (totalSeconds <= 0) {
                 clearInterval(timerInterval);
                 document.getElementById('question-text').innerText = "หมดเวลาเตรียมตัว เริ่มการประชุมได้เลยครับ!";
                 document.getElementById('options-container').innerHTML = "";
                 document.getElementById('explanation-box').style.display = 'none';
                 document.getElementById('special-message').style.display = 'none';
+                document.getElementById('track-container').style.display = 'none';
                 bgAudio.pause(); 
                 return;
             }
@@ -115,12 +147,10 @@
             totalSeconds--;
             phaseSeconds++;
 
-            // 💡 ใช้ตัวแปร questionTimeLimit แทนตัวเลขตายตัว
             if (!isAnswerPhase && phaseSeconds >= questionTimeLimit) {
                 isAnswerPhase = true;
                 phaseSeconds = 0;
             } 
-            // 💡 ใช้ตัวแปร answerTimeLimit แทนตัวเลขตายตัว
             else if (isAnswerPhase && phaseSeconds >= answerTimeLimit) {
                 isAnswerPhase = false;
                 phaseSeconds = 0;
@@ -152,13 +182,30 @@
                 }).join('');
                 document.getElementById('options-container').innerHTML = optionsHtml;
 
-                // 💡 จัดการแสดงกล่องคำอธิบาย
                 const expBox = document.getElementById('explanation-box');
-                if (isAnswerPhase && q.explanation) {
-                    expBox.innerHTML = `<strong>💡 คำอธิบาย:</strong><br> ${q.explanation}`;
-                    expBox.style.display = 'block';
+                const trackContainer = document.getElementById('track-container');
+                const runner = document.getElementById('runner');
+
+                if (isAnswerPhase) {
+                    // โหมดเฉลย: โชว์คำอธิบาย ซ่อนลู่วิ่ง
+                    trackContainer.style.display = 'none';
+                    
+                    if (q.explanation) {
+                        expBox.innerHTML = `<strong>💡 คำอธิบาย:</strong><br> ${q.explanation}`;
+                        expBox.style.display = 'block';
+                    } else {
+                        expBox.style.display = 'none';
+                    }
                 } else {
+                    // โหมดคำถาม: โชว์ลู่วิ่ง ซ่อนคำอธิบาย
                     expBox.style.display = 'none';
+                    trackContainer.style.display = 'block';
+                    
+                    // 🏃‍♂️ คำนวณเปอร์เซ็นต์การวิ่ง (เวลาผ่านไป / เวลาทั้งหมด * 100)
+                    let progressPercent = (phaseSeconds / questionTimeLimit) * 100;
+                    if (progressPercent > 100) progressPercent = 100; // กันทะลุเส้นชัย
+                    
+                    runner.style.left = `${progressPercent}%`;
                 }
             }
         }
