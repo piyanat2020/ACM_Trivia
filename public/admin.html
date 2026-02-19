@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>ระบบจัดการคำถาม (Admin Panel)</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; background-color: #f9f9f9; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input, select, button { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background-color: #0056b3; }
+        .delete-btn { background-color: #dc3545; width: auto; padding: 5px 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+
+    <h1>จัดการระบบ Trivia</h1>
+
+    <div class="card">
+        <h3>ข้อความพิเศษ (3 นาทีสุดท้าย)</h3>
+        <input type="text" id="special-message" placeholder="กรอกข้อความที่ต้องการแจ้งเตือน">
+        <button onclick="updateSpecialMessage()">บันทึกข้อความ</button>
+    </div>
+
+    <div class="card">
+        <h3>เพิ่มคำถามใหม่</h3>
+        <label>คำถาม:</label>
+        <input type="text" id="q-text" placeholder="เช่น 1+1 เท่ากับเท่าไร?">
+        
+        <label>ตัวเลือกที่ 1:</label>
+        <input type="text" id="q-opt1" placeholder="ตัวเลือกที่ 1">
+        
+        <label>ตัวเลือกที่ 2:</label>
+        <input type="text" id="q-opt2" placeholder="ตัวเลือกที่ 2">
+        
+        <label>ตัวเลือกที่ 3:</label>
+        <input type="text" id="q-opt3" placeholder="ตัวเลือกที่ 3">
+        
+        <label>ข้อที่ถูกต้อง:</label>
+        <select id="q-answer">
+            <option value="0">ตัวเลือกที่ 1</option>
+            <option value="1">ตัวเลือกที่ 2</option>
+            <option value="2">ตัวเลือกที่ 3</option>
+        </select>
+        
+        <button onclick="addQuestion()">เพิ่มคำถาม</button>
+    </div>
+
+    <div class="card">
+        <h3>รายการคำถามทั้งหมด</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>คำถาม</th>
+                    <th>ตัวเลือก (ข้อถูกจะมีเครื่องหมาย ✅)</th>
+                    <th>จัดการ</th>
+                </tr>
+            </thead>
+            <tbody id="questions-table-body">
+                </tbody>
+        </table>
+    </div>
+
+    <script>
+         const API_URL = '/api';
+
+        // โหลดข้อมูลทั้งหมดเมื่อเปิดหน้าเว็บ
+        window.onload = () => {
+            fetchSettings();
+            fetchQuestions();
+        };
+
+        // --- ฟังก์ชันดึงและอัปเดตข้อความพิเศษ ---
+        async function fetchSettings() {
+            const res = await fetch(`${API_URL}/settings`);
+            const data = await res.json();
+            document.getElementById('special-message').value = data.specialMessage;
+        }
+
+        async function updateSpecialMessage() {
+            const message = document.getElementById('special-message').value;
+            await fetch(`${API_URL}/settings`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ specialMessage: message })
+            });
+            alert('อัปเดตข้อความสำเร็จ!');
+        }
+
+        // --- ฟังก์ชันเกี่ยวกับคำถาม (แสดง, เพิ่ม, ลบ) ---
+        async function fetchQuestions() {
+            const res = await fetch(`${API_URL}/questions`);
+            const questions = await res.json();
+            
+            const tbody = document.getElementById('questions-table-body');
+            tbody.innerHTML = ''; // ล้างค่าเดิมก่อน
+            
+            questions.forEach(q => {
+                // สร้างรายการตัวเลือก และใส่ ✅ หน้าข้อที่ถูก
+                const optionsList = q.options.map((opt, idx) => 
+                    idx === q.answerIndex ? `✅ ${opt}` : opt
+                ).join(', ');
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${q.id}</td>
+                    <td>${q.text}</td>
+                    <td>${optionsList}</td>
+                    <td><button class="delete-btn" onclick="deleteQuestion(${q.id})">ลบ</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function addQuestion() {
+            const text = document.getElementById('q-text').value;
+            const options = [
+                document.getElementById('q-opt1').value,
+                document.getElementById('q-opt2').value,
+                document.getElementById('q-opt3').value
+            ];
+            const answerIndex = parseInt(document.getElementById('q-answer').value);
+
+            if (!text || !options[0] || !options[1] || !options[2]) {
+                return alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+            }
+
+            await fetch(`${API_URL}/questions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, options, answerIndex })
+            });
+
+            // ล้างค่าในฟอร์มและโหลดตารางใหม่
+            document.getElementById('q-text').value = '';
+            document.getElementById('q-opt1').value = '';
+            document.getElementById('q-opt2').value = '';
+            document.getElementById('q-opt3').value = '';
+            fetchQuestions();
+        }
+
+        async function deleteQuestion(id) {
+            if (confirm('คุณแน่ใจหรือไม่ที่จะลบคำถามข้อนี้?')) {
+                await fetch(`${API_URL}/questions/${id}`, { method: 'DELETE' });
+                fetchQuestions(); // โหลดตารางใหม่
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>Trivia Before Meeting</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f0f8ff; }
+        .correct-answer { background-color: darkgreen; color: white; padding: 15px; border-radius: 8px; font-weight: bold; margin: 10px auto; width: 350px; }
+        .option { padding: 15px; border: 2px solid #ccc; margin: 10px auto; width: 350px; border-radius: 8px; background-color: white; }
+        #special-message { color: red; font-weight: bold; font-size: 1.5em; display: none; margin-bottom: 20px; animation: blink 1s infinite; }
+        #timer-display { font-size: 3em; margin-bottom: 20px; font-weight: bold; color: #333; }
+        #question-text { font-size: 2em; margin-bottom: 20px; color: #0056b3; }
+        
+        /* สไตล์สำหรับหน้าจอเริ่มต้นและปุ่ม Start */
+        #start-screen { margin-top: 100px; }
+        .start-btn { font-size: 1.5em; padding: 15px 40px; background-color: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        .start-btn:hover { background-color: #218838; }
+
+        @keyframes blink {
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <h1>กิจกรรมทายคำถามก่อนเริ่มประชุม</h1>
+        <p id="loading-text">กำลังโหลดคำถามจากระบบ...</p>
+        <button id="start-btn" class="start-btn" onclick="startGame()" style="display: none;">เริ่มจับเวลา 20 นาที</button>
+    </div>
+
+    <div id="game-screen" style="display: none;">
+        <div id="timer-display">เวลาคงเหลือ: 20:00</div>
+        <div id="special-message">กรุณาเตรียมคำถามก่อนเข้า Meeting!</div>
+
+        <div id="question-container">
+            <h2 id="question-text">เตรียมพร้อม...</h2>
+            <div id="options-container"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+        
+        // ตัวแปรเก็บข้อมูลจาก API
+        let questions = [];
+        let specialMessageText = "";
+
+        // ตัวแปรจัดการเวลา
+        let totalSeconds = 20 * 60; // 20 นาที
+        let phaseSeconds = 0; 
+        let currentQuestionIndex = 0;
+        let isAnswerPhase = false; 
+        let timerInterval;
+
+        // ฟังก์ชันโหลดข้อมูลจากระบบหลังบ้านเมื่อเปิดหน้าเว็บ
+        window.onload = async () => {
+            try {
+                // ดึงคำถามสุ่ม 4 ข้อ
+                const qRes = await fetch(`${API_URL}/questions/random`);
+                questions = await qRes.json();
+
+                // ดึงข้อความพิเศษ
+                const sRes = await fetch(`${API_URL}/settings`);
+                const settings = await sRes.json();
+                specialMessageText = settings.specialMessage;
+                document.getElementById('special-message').innerText = specialMessageText;
+
+                // ตรวจสอบว่ามีคำถามหรือไม่
+                if (questions.length > 0) {
+                    document.getElementById('loading-text').style.display = 'none';
+                    document.getElementById('start-btn').style.display = 'inline-block';
+                } else {
+                    document.getElementById('loading-text').innerText = "❌ ไม่พบคำถามในระบบ กรุณาเพิ่มคำถามในหน้า Admin";
+                }
+            } catch (error) {
+                console.error("เกิดข้อผิดพลาดในการโหลดข้อมูล:", error);
+                document.getElementById('loading-text').innerText = "❌ ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้";
+            }
+        };
+
+        // ฟังก์ชันเมื่อกดปุ่ม "เริ่มจับเวลา"
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            
+            updateDisplay(); // อัปเดตหน้าจอครั้งแรก
+            timerInterval = setInterval(tick, 1000); // เริ่มจับเวลา
+        }
+
+        // ฟังก์ชันจัดการเวลา (ทำงานทุกๆ 1 วินาที)
+        function tick() {
+            if (totalSeconds <= 0) {
+                clearInterval(timerInterval);
+                document.getElementById('question-text').innerText = "หมดเวลาเตรียมตัว เริ่มการประชุมได้เลยครับ!";
+                document.getElementById('options-container').innerHTML = "";
+                document.getElementById('special-message').style.display = 'none';
+                return;
+            }
+
+            totalSeconds--;
+            phaseSeconds++;
+
+            // ครบ 3 นาที -> เปลี่ยนเป็นแสดงเฉลย
+            if (!isAnswerPhase && phaseSeconds >= 3 * 60) {
+                isAnswerPhase = true;
+                phaseSeconds = 0;
+            } 
+            // ครบ 2 นาทีตอนเฉลย -> เปลี่ยนไปข้อถัดไป
+            else if (isAnswerPhase && phaseSeconds >= 2 * 60) {
+                isAnswerPhase = false;
+                phaseSeconds = 0;
+                currentQuestionIndex++;
+                
+                // ถ้าคำถามหมดแล้ว (แสดงครบ 4 ข้อ) ให้หยุดหน้าจอไว้
+                if(currentQuestionIndex >= questions.length) {
+                    currentQuestionIndex = questions.length - 1; // ค้างไว้ที่ข้อสุดท้าย
+                }
+            }
+
+            updateDisplay();
+        }
+
+        // ฟังก์ชันอัปเดตหน้าจอ
+        function updateDisplay() {
+            // อัปเดตตัวเลขเวลา
+            const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            const s = (totalSeconds % 60).toString().padStart(2, '0');
+            document.getElementById('timer-display').innerText = `เวลาคงเหลือ: ${m}:${s}`;
+
+            // แสดงข้อความพิเศษเมื่อเหลือน้อยกว่าหรือเท่ากับ 3 นาที (180 วินาที)
+            if (totalSeconds <= 180 && totalSeconds > 0) {
+                document.getElementById('special-message').style.display = 'block';
+            } else {
+                document.getElementById('special-message').style.display = 'none';
+            }
+
+            // จัดการแสดงคำถามหรือเฉลย
+            const q = questions[currentQuestionIndex];
+            if (q) {
+                document.getElementById('question-text').innerText = isAnswerPhase ? `เฉลย: ${q.text}` : `คำถามที่ ${currentQuestionIndex + 1}: ${q.text}`;
+                
+                const optionsHtml = q.options.map((opt, index) => {
+                    // เปลี่ยนสีเฉพาะข้อที่ถูก ในตอนที่อยู่ในโหมดเฉลย
+                    const isCorrectClass = (isAnswerPhase && index === q.answerIndex) ? 'correct-answer' : 'option';
+                    return `<div class="${isCorrectClass}">${opt}</div>`;
+                }).join('');
+                document.getElementById('options-container').innerHTML = optionsHtml;
+            }
+        }
+    </script>
+</body>
+</html>
