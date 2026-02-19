@@ -34,18 +34,20 @@
     </div>
 
     <div class="card">
-        <h3>เพิ่มคำถามใหม่</h3>
+        <h3>เพิ่มคำถามใหม่ (4 ตัวเลือก)</h3>
         <input type="text" id="q-text" placeholder="คำถาม: เช่น 1+1 เท่ากับเท่าไร?">
+        
         <input type="text" id="q-opt1" placeholder="ตัวเลือกที่ 1">
         <input type="text" id="q-opt2" placeholder="ตัวเลือกที่ 2">
         <input type="text" id="q-opt3" placeholder="ตัวเลือกที่ 3">
-        <input type="text" id="q-opt3" placeholder="ตัวเลือกที่ 4">
+        <input type="text" id="q-opt4" placeholder="ตัวเลือกที่ 4">
+        
         <select id="q-answer">
             <option value="0">เฉลย: ตัวเลือกที่ 1</option>
             <option value="1">เฉลย: ตัวเลือกที่ 2</option>
             <option value="2">เฉลย: ตัวเลือกที่ 3</option>
-            <option value="3">เฉลย: ตัวเลือกที่ 4</option>
-        </select>
+            <option value="3">เฉลย: ตัวเลือกที่ 4</option> </select>
+        
         <textarea id="q-explanation" rows="3" placeholder="คำอธิบาย (ทำไมถึงตอบข้อนี้?)"></textarea>
         <button onclick="addQuestion()">เพิ่มคำถาม</button>
     </div>
@@ -96,20 +98,40 @@
                 <td><button class="delete-btn" onclick="deleteQuestion(${q.id})">ลบ</button></td></tr>`;
             }).join('');
         }
+        
         async function addQuestion() {
             const text = document.getElementById('q-text').value;
-            const options = [document.getElementById('q-opt1').value, document.getElementById('q-opt2').value, document.getElementById('q-opt3').value];
+            // ดึงข้อมูลตัวเลือกให้ครบทั้ง 4 ข้อ
+            const options = [
+                document.getElementById('q-opt1').value, 
+                document.getElementById('q-opt2').value, 
+                document.getElementById('q-opt3').value,
+                document.getElementById('q-opt4').value
+            ];
             const answerIndex = parseInt(document.getElementById('q-answer').value);
             const explanation = document.getElementById('q-explanation').value;
 
-            if (!text || !options[0]) return alert('กรุณากรอกข้อมูลคำถามและตัวเลือก');
-            await fetch(`${API_URL}/questions`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text, options, answerIndex, explanation})});
+            // เช็คว่ากรอกข้อมูลครบทุกช่องหรือไม่
+            if (!text || !options[0] || !options[1] || !options[2] || !options[3]) {
+                return alert('กรุณากรอกข้อมูลคำถามและตัวเลือกให้ครบทั้ง 4 ข้อ');
+            }
+
+            await fetch(`${API_URL}/questions`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({text, options, answerIndex, explanation})
+            });
             
-            document.getElementById('q-text').value = ''; document.getElementById('q-opt1').value = ''; 
-            document.getElementById('q-opt2').value = ''; document.getElementById('q-opt3').value = ''; 
+            // ล้างข้อมูลในฟอร์มหลังเพิ่มเสร็จ
+            document.getElementById('q-text').value = ''; 
+            document.getElementById('q-opt1').value = ''; 
+            document.getElementById('q-opt2').value = ''; 
+            document.getElementById('q-opt3').value = ''; 
+            document.getElementById('q-opt4').value = ''; 
             document.getElementById('q-explanation').value = '';
             fetchQuestions();
         }
+
         async function deleteQuestion(id) {
             if (confirm('ลบคำถามนี้?')) { await fetch(`${API_URL}/questions/${id}`, { method: 'DELETE' }); fetchQuestions(); }
         }
